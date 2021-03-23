@@ -18,6 +18,7 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <regex>
 
 #include <unistd.h>
 
@@ -45,60 +46,146 @@ using std::chrono::seconds;
 using std::chrono::steady_clock;
 using std::chrono::system_clock;
 
+auto printBigraphMapping(const std::pair<InputGraph, InputGraph> graphs,
+                         const VertexToVertexMapping & mapping) -> void
+{
+    cout << "mapping = {";
+    bool lazy_flag = false;
+
+    for (auto v : mapping) {
+        if(graphs.first.vertex_name(v.first).find("C_LINK") != string::npos) break;
+        if(graphs.first.vertex_label(v.first) == "LINK") continue;
+        if(lazy_flag) cout << ",";
+        lazy_flag = true;
+        cout << "(" << graphs.first.vertex_name(v.first) << ", " << graphs.second.vertex_name(v.second) << ")";
+    }
+    cout << "} -- {";
+
+    lazy_flag = false;
+    for (auto v : mapping) {
+        if(graphs.first.vertex_name(v.first).find("C_LINK") == string::npos) continue;
+        if(lazy_flag) cout << ",";
+        lazy_flag = true;
+        cout << "(" << graphs.first.vertex_name(v.first).substr(7) << ", " << graphs.second.vertex_name(v.second).substr(7) << ")";
+    }
+
+    cout << "} -- {";
+
+    lazy_flag = false;
+    for (auto v : mapping) {
+        if(lazy_flag) cout << ",";
+        lazy_flag = true;
+        cout << "(" << graphs.first.vertex_name(v.first) << ", " << graphs.second.vertex_name(v.second) << ")";
+    }
+
+    cout << "}";
+    cout << endl;
+}
+
+auto printBigraphMappingBigraphER(const std::pair<InputGraph, InputGraph> graphs,
+                                  const VertexToVertexMapping & mapping) -> void
+{
+    cout << "S" << std::endl;
+    for (auto v : mapping) {
+        if(graphs.first.vertex_name(v.first).find("C_LINK") != string::npos) {
+            cout << "E "
+                 << graphs.first.vertex_name(v.first).substr(7) << " "
+                 << graphs.second.vertex_name(v.second).substr(7) << std::endl;
+        }
+        else if(graphs.first.vertex_label(v.first) != "LINK") {
+            cout << "N "
+                << graphs.first.vertex_name(v.first) << " "
+                << graphs.second.vertex_name(v.second) << std::endl;
+        }
+    }
+
+    // Combine hyperedges for printing
+    std::map<int, std::set<int>> hyper_edges;
+    const std::regex linkL { R"(L(\d+)_.*)" };
+    const std::regex linkAny { R"((L|C)(\d+)_.*)" };
+    std::smatch match;
+
+    for (auto v : mapping) {
+        int l1, l2;
+        if(graphs.first.vertex_label(v.first) == "LINK") {
+            std::string str = graphs.first.vertex_name(v.first);
+            if (regex_match(str, match, linkL)) {
+                l1 = stoi(match.str(1));
+
+                str = graphs.second.vertex_name(v.second);
+                if (regex_match(str, match, linkAny)) {
+                    l2 = stoi(match.str(2));
+                    hyper_edges[l1].insert(l2);
+                }
+            }
+        }
+    }
+
+    for (auto & s : hyper_edges) {
+        cout << "H " << s.first << " ";
+        for (auto & i : s.second) {
+              cout << i << " ";
+        }
+        cout << std::endl;
+    }
+
+    cout << "D" << std::endl;
+}
+
 auto main(int argc, char * argv[]) -> int
 {
     try {
-        po::options_description display_options{ "Program options" };
-        display_options.add_options()
-            ("help",                                         "Display help information")
-            ("timeout",            po::value<int>(),         "Abort after this many seconds");
+        // po::options_description display_options{ "Program options" };
+        // display_options.add_options()
+        //     ("help",                                         "Display help information")
+        //     ("timeout",            po::value<int>(),         "Abort after this many seconds");
 
-        po::options_description problem_options{ "Problem options" };
-        problem_options.add_options()
-            ("count-solutions",                              "Count the number of solutions")
-            ("print-all-solutions",                          "Print out every solution, rather than one");
-        display_options.add(problem_options);
+        // po::options_description problem_options{ "Problem options" };
+        // problem_options.add_options()
+        //     ("count-solutions",                              "Count the number of solutions")
+        //     ("print-all-solutions",                          "Print out every solution, rather than one");
+        // display_options.add(problem_options);
 
-        po::options_description mangling_options{ "Advanced input processing options" };
-        mangling_options.add_options()
-            ("no-supplementals",                               "Do not use supplemental graphs")
-            ("no-nds",                                         "Do not use neighbourhood degree sequences");
-        display_options.add(mangling_options);
+        // po::options_description mangling_options{ "Advanced input processing options" };
+        // mangling_options.add_options()
+        //     ("no-supplementals",                               "Do not use supplemental graphs")
+        //     ("no-nds",                                         "Do not use neighbourhood degree sequences");
+        // display_options.add(mangling_options);
 
-        po::options_description all_options{ "All options" };
-        all_options.add_options()
-            ("pattern-file", "specify the pattern file")
-            ("target-file",  "specify the target file")
-            ;
+        // po::options_description all_options{ "All options" };
+        // all_options.add_options()
+        //     ("pattern-file", "specify the pattern file")
+        //     ("target-file",  "specify the target file")
+        //     ;
 
-        all_options.add(display_options);
+        // all_options.add(display_options);
 
-        po::positional_options_description positional_options;
-        positional_options
-            .add("pattern-file", 1)
-            .add("target-file", 1)
-            ;
+        // po::positional_options_description positional_options;
+        // positional_options
+        //     .add("pattern-file", 1)
+        //     .add("target-file", 1)
+        //     ;
 
-        po::variables_map options_vars;
-        po::store(po::command_line_parser(argc, argv)
-                .options(all_options)
-                .positional(positional_options)
-                .run(), options_vars);
-        po::notify(options_vars);
+        // po::variables_map options_vars;
+        // po::store(po::command_line_parser(argc, argv)
+        //         .options(all_options)
+        //         .positional(positional_options)
+        //         .run(), options_vars);
+        // po::notify(options_vars);
 
-        /* --help? Show a message, and exit. */
-        if (options_vars.count("help")) {
-            cout << "Usage: " << argv[0] << " [options] pattern target" << endl;
-            cout << endl;
-            cout << display_options << endl;
-            return EXIT_SUCCESS;
-        }
+        // /* --help? Show a message, and exit. */
+        // if (options_vars.count("help")) {
+        //     cout << "Usage: " << argv[0] << " [options] pattern target" << endl;
+        //     cout << endl;
+        //     cout << display_options << endl;
+        //     return EXIT_SUCCESS;
+        // }
 
-        /* No algorithm or no input file specified? Show a message and exit. */
-        if (! options_vars.count("pattern-file") || ! options_vars.count("target-file")) {
-            cout << "Usage: " << argv[0] << " [options] pattern target" << endl;
-            return EXIT_FAILURE;
-        }
+        // /* No algorithm or no input file specified? Show a message and exit. */
+        // if (! options_vars.count("pattern-file") || ! options_vars.count("target-file")) {
+        //     cout << "Usage: " << argv[0] << " [options] pattern target" << endl;
+        //     return EXIT_FAILURE;
+        // }
 
         /* Figure out what our options should be. */
         HomomorphismParams params;
@@ -147,36 +234,13 @@ auto main(int argc, char * argv[]) -> int
         if (options_vars.count("print-all-solutions") && ! params.bigraph) {
             params.enumerate_callback = [&] (const VertexToVertexMapping & mapping) {
                 cout << "mapping = ";
-                for (auto v : mapping)              
+                for (auto v : mapping)
                     cout << "(" << graphs.first.vertex_name(v.first) << " -> " << graphs.second.vertex_name(v.second) << ") ";
                 cout << endl;
             };
         }
         else if(options_vars.count("print-all-solutions") && params.bigraph) {
-            params.enumerate_callback = [&] (const VertexToVertexMapping & mapping) {
-                cout << "mapping = {";
-                bool lazy_flag = false;
-
-                for (auto v : mapping) {
-                    if(graphs.first.vertex_name(v.first).find("C_LINK") != string::npos) break;
-                    if(graphs.first.vertex_label(v.first) == "LINK") continue;
-                    if(lazy_flag) cout << ",";
-                    lazy_flag = true;
-                    cout << "(" << graphs.first.vertex_name(v.first) << ", " << graphs.second.vertex_name(v.second) << ")";
-                }
-                cout << "} -- {";
-                
-                lazy_flag = false;
-                for (auto v : mapping) { 
-                    if(graphs.first.vertex_name(v.first).find("C_LINK") == string::npos) continue;
-                    if(lazy_flag) cout << ",";
-                    lazy_flag = true;
-                    cout << "(" << graphs.first.vertex_name(v.first).substr(7) << ", " << graphs.second.vertex_name(v.second).substr(7) << ")";
-                }              
-
-                cout << "}";
-                cout << endl;
-            };
+            params.enumerate_callback = std::bind(printBigraphMappingBigraphER, graphs, std::placeholders::_1);
         }
 
         /* Prepare and start timeout */
@@ -212,28 +276,7 @@ auto main(int argc, char * argv[]) -> int
             cout << endl;
         }
         else if(! result.mapping.empty() && ! options_vars.count("print-all-solutions") && params.bigraph) {
-            cout << "mapping = {";
-            bool lazy_flag = false;
-
-            for (auto v : result.mapping) {
-                if(graphs.first.vertex_name(v.first).find("C_LINK") != string::npos) break;
-                if(graphs.first.vertex_label(v.first) == "LINK") continue;
-                if(lazy_flag) cout << ",";
-                lazy_flag = true;
-                cout << "(" << graphs.first.vertex_name(v.first) << ", " << graphs.second.vertex_name(v.second) << ")";
-            }
-            cout << "} -- {";
-            
-            lazy_flag = false;
-            for (auto v : result.mapping) { 
-                if(graphs.first.vertex_name(v.first).find("C_LINK") == string::npos) continue;
-                if(lazy_flag) cout << ",";
-                lazy_flag = true;
-                cout << "(" << graphs.first.vertex_name(v.first).substr(7) << ", " << graphs.second.vertex_name(v.second).substr(7) << ")";
-            }              
-
-            cout << "}";
-            cout << endl;
+            printBigraphMappingBigraphER(graphs, result.mapping);
         }
 
         cout << "runtime = " << overall_time.count() << endl;

@@ -86,8 +86,9 @@ auto read_target_bigraph(ifstream && infile, const string &) -> InputGraph
 
     // Add link graph nodes (this is where all the scary stuff happens...)
     string h = read_str(infile);
-    int closed_link_count = 0;
-    int open_link_count = 0;
+    // int closed_link_count = 0;
+    // int open_link_count = 0;
+    int link_count = 0;
     while (h == "({},") {
         pair<bool, vector<int> > he;
         he.second.resize(r + n + s);
@@ -106,12 +107,12 @@ auto read_target_bigraph(ifstream && infile, const string &) -> InputGraph
 
         string port_id;
         if(he.first){
-            port_id = "C" + to_string(closed_link_count);
-            closed_link_count++;
+            port_id = "C" + to_string(link_count);
+            link_count++;
         }
         else{ 
-            port_id = "L" + to_string(open_link_count);    
-            open_link_count++;
+            port_id = "L" + to_string(link_count);
+            link_count++;
         }
 
         int ports_connected = 0;
@@ -130,7 +131,7 @@ auto read_target_bigraph(ifstream && infile, const string &) -> InputGraph
 
         if(he.first){
             result.add_link_node();
-            result.set_vertex_name(result.size()-1, "C_LINK_" + to_string(closed_link_count-1)); 
+            result.set_vertex_name(result.size()-1, "C_LINK_" + to_string(link_count-1));
             result.set_vertex_label(result.size()-1, "ANCHOR");
             for(int i=(result.size()-ports_connected-1);i<result.size()-1;i++)
                 result.add_directed_edge(i, result.size()-1, "dir");           
@@ -181,8 +182,9 @@ auto read_pattern_bigraph(ifstream && infile, const string &) -> InputGraph
 
     // Add link graph nodes
     string h = read_str(infile);
-    int closed_link_count = 0;
-    int open_link_count = 0;
+    // int closed_link_count = 0;
+    // int open_link_count = 0;
+    int link_count = 0;
     while (h == "({},") {
         pair<bool, vector<int> > he;
         he.second.resize(n);
@@ -201,12 +203,12 @@ auto read_pattern_bigraph(ifstream && infile, const string &) -> InputGraph
 
         string port_id;
         if(he.first){
-            port_id = "C" + to_string(closed_link_count);
-            closed_link_count++;
+            port_id = "C" + to_string(link_count);
+            link_count++;
         }
         else{ 
-            port_id = "L" + to_string(open_link_count);    
-            open_link_count++;
+            port_id = "L" + to_string(link_count);
+            link_count++;
         }
 
         int ports_connected = 0;
@@ -225,7 +227,7 @@ auto read_pattern_bigraph(ifstream && infile, const string &) -> InputGraph
         
         if(he.first){
             result.add_link_node();            
-            result.set_vertex_name(result.size()-1, "C_LINK_" + to_string(closed_link_count-1)); 
+            result.set_vertex_name(result.size()-1, "C_LINK_" + to_string(link_count-1));
             result.set_vertex_label(result.size()-1, "ANCHOR");
             for(int i=(result.size()-ports_connected-1);i<result.size()-1;i++)
                 result.add_directed_edge(i, result.size()-1, "dir");
