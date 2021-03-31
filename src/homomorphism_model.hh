@@ -54,6 +54,8 @@ class HomomorphismModel
 
         auto _check_bigraph_degree_compatibility(int p, int t) const -> bool;
 
+        auto _check_bigraph_equal_compatibility(int p, int t) const -> bool;
+
     public:
         using PatternAdjacencyBitsType = uint8_t;
 

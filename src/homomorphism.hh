@@ -45,6 +45,7 @@ struct HomomorphismParams
 
     /// Is a bigraph?
     bool bigraph = false;
+    bool bigraph_equal = false;
 
     /// Noninjective?
     Injectivity injectivity = Injectivity::Injective;

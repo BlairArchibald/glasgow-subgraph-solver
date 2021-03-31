@@ -454,6 +454,23 @@ auto HomomorphismModel::_check_bigraph_degree_compatibility(int p, int t) const 
     return true;
 }
 
+auto HomomorphismModel::_check_bigraph_equal_compatibility(int p, int t) const -> bool
+{
+    // ROOTS map to ROOTS
+    if(_imp->pattern_vertex_proof_names[p].find("ROOT") != string::npos && _imp->target_vertex_proof_names[t].find("ROOT") != string::npos)
+        if(_imp->pattern_vertex_proof_names[p] != _imp->target_vertex_proof_names[t])
+            return false;
+
+    // SITES to SITES
+    if(_imp->pattern_vertex_proof_names[p].find("SITE") != string::npos && _imp->target_vertex_proof_names[t].find("SITE") != string::npos)
+        if(_imp->pattern_vertex_proof_names[p] != _imp->target_vertex_proof_names[t])
+            return false;
+
+    // HYPEREDGES to HYPEREDGES (Offline for now)
+
+    return true;
+}
+
 auto HomomorphismModel::initialise_domains(vector<HomomorphismDomain> & domains) const -> bool
 {
     unsigned graphs_to_consider = max_graphs;
@@ -494,6 +511,8 @@ auto HomomorphismModel::initialise_domains(vector<HomomorphismDomain> & domains)
             else if (! _check_degree_compatibility(i, j, graphs_to_consider, patterns_ndss, targets_ndss, _imp->params.proof.get()))
                 ok = false;
             else if (_imp->params.bigraph && ! _check_bigraph_degree_compatibility(i, j))
+                ok = false;
+            else if (_imp->params.bigraph_equal && ! _check_bigraph_equal_compatibility(i, j))
                 ok = false;
             if (ok)
                 domains.at(i).values.set(j);
