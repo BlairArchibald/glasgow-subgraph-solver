@@ -141,7 +141,7 @@ auto doEqual(string pattern_filename, string target_filename) -> void {
     params.bigraph_equal = true;
     params.count_solutions = true; // In case the first solution doesn't do the hyperedges properly -- todo constriain this
 
-    params.restarts_schedule = make_unique<LubyRestartsSchedule>(LubyRestartsSchedule::default_multiplier);
+    params.restarts_schedule = make_unique<NoRestartsSchedule>();
 
     ifstream pattern_infile{ pattern_filename };
     if (! pattern_infile)
@@ -181,8 +181,9 @@ auto doSearch(string pattern_filename, string target_filename, bool all) -> void
 
     if (all) {
         params.restarts_schedule = make_unique<NoRestartsSchedule>();
+    } else {
+        params.restarts_schedule = make_unique<LubyRestartsSchedule>(LubyRestartsSchedule::default_multiplier);
     }
-    params.restarts_schedule = make_unique<LubyRestartsSchedule>(LubyRestartsSchedule::default_multiplier);
 
     ifstream pattern_infile{ pattern_filename };
     if (! pattern_infile)
