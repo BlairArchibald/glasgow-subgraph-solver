@@ -185,15 +185,56 @@ void gbs_match_one(const char* pat, const char* tar) {
     doSearch(std::string(pat), std::string(tar), false);
 }
 
-void gbs_equal(const char* pat, const char* tar) {
+bool gbs_equal(const char* pat, const char* tar) {
     res.clear();
     doEqual(std::string(pat), std::string(tar));
+    // Check Interface equality
+    if (res.mapping.empty()) {
+        return false;
+    }
+    // Just need one to be equal
+    for (auto m : res.mapping) {
+        // std::cout << "Sol:\n" << printBigraphMappingBigraphER(m) << std::endl;
+        bool failure = false;
+        for (auto v : m) {
+            if (patG.vertex_name(v.first).find("ROOT") != string::npos) {
+                int l = std::stoi(patG.vertex_name(v.first).substr(4));
+                int r = std::stoi(tarG.vertex_name(v.second).substr(4));
+                if (l != r) { failure = true; break; } // Roots are not identity
+            }
+
+            const std::regex linkL { R"(L(\d+)_.*)" };
+            const std::regex linkAny { R"((L|C)(\d+)_.*)" };
+            std::smatch match;
+            if(patG.vertex_label(v.first) == "LINK") {
+                int l1, l2;
+                std::string str = patG.vertex_name(v.first);
+                if (regex_match(str, match, linkL)) {
+                    l1 = stoi(match.str(1));
+
+                    str = tarG.vertex_name(v.second);
+                    if (regex_match(str, match, linkAny)) {
+                        l2 = stoi(match.str(2));
+                        if (l1 != l2) { failure = true; break; } // Hyperedge not identity
+                    }
+                }
+            }
+        }
+
+        if (!failure) {
+            return true;
+        }
+
+    }
+
+    return false;
 }
 
 VertexToVertexMapping gbs_nextsol() {
     if (res.mapping.empty() || res.mapping.size() <= res.next) {
         return {};
     }
+
 
     auto r = res.mapping[res.next];
     res.next++;
@@ -226,8 +267,8 @@ std::map<int, int> gbs_getNodes(const VertexToVertexMapping & mapping) {
     return res;
 }
 
-std::map<int, std::set<int>> gbs_getHyp(const VertexToVertexMapping & mapping) {
-    std::map<int, std::set<int>> res;
+std::vector<std::pair<int,int>> gbs_getHyp(const VertexToVertexMapping & mapping) {
+    std::vector<std::pair<int, int>> res;
 
     // Combine hyperedges
     const std::regex linkL { R"(L(\d+)_.*)" };
@@ -235,16 +276,15 @@ std::map<int, std::set<int>> gbs_getHyp(const VertexToVertexMapping & mapping) {
     std::smatch match;
 
     for (auto v : mapping) {
-        int l1, l2;
         if(patG.vertex_label(v.first) == "LINK") {
             std::string str = patG.vertex_name(v.first);
             if (regex_match(str, match, linkL)) {
-                l1 = stoi(match.str(1));
+                int l1 = stoi(match.str(1));
 
                 str = tarG.vertex_name(v.second);
                 if (regex_match(str, match, linkAny)) {
-                    l2 = stoi(match.str(2));
-                    res[l1].insert(l2);
+                    int l2 = stoi(match.str(2));
+                    res.emplace_back(std::make_pair(l1,l2));
                 }
             }
         }
