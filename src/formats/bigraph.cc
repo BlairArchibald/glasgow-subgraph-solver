@@ -8,7 +8,7 @@
 #include <utility>
 #include <iostream>
 
-using std::ifstream;
+using std::istream;
 using std::pair;
 using std::string;
 using std::stoi;
@@ -18,21 +18,21 @@ using std::cout;
 
 namespace
 {
-    auto read_num(ifstream & infile) -> int
+    auto read_num(istream & infile) -> int
     {
         int x;
         infile >> x;
         return x;
     }
 
-    auto read_str(ifstream & infile) -> string
+    auto read_str(istream & infile) -> string
     {
         string s;
         infile >> s;
         return s;
     }
 
-    auto read_char(ifstream & infile) -> char
+    auto read_char(istream & infile) -> char
     {
         char c;
         infile >> c;
@@ -40,7 +40,7 @@ namespace
     }
 }
 
-auto read_target_bigraph(ifstream && infile, const string &) -> InputGraph
+auto read_target_bigraph(istream && infile, const string &) -> InputGraph
 {
 
     InputGraph result{ 0, true, true, true };
@@ -143,7 +143,7 @@ auto read_target_bigraph(ifstream && infile, const string &) -> InputGraph
     return result;
 }
 
-auto read_pattern_bigraph(ifstream && infile, const string &) -> InputGraph
+auto read_pattern_bigraph(istream && infile, const string &) -> InputGraph
 {
     InputGraph result{ 0, true, true, true };
 

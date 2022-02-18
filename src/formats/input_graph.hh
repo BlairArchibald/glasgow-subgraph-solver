@@ -40,12 +40,15 @@ class InputGraph
     public:
         /**
          * \param initial_size can be 0, if resize() is called afterwards.
-         */
+        */
         InputGraph(int initial_size, bool has_vertex_labels, bool has_edge_labels, bool force_directed = false);
 
         InputGraph(const InputGraph &) = default;
+        InputGraph(InputGraph &) = default;
 
-        InputGraph(InputGraph &&) = default;
+        //InputGraph(InputGraph &&) = default;
+
+        InputGraph() = default;
 
         /**
          * Number of vertices.
