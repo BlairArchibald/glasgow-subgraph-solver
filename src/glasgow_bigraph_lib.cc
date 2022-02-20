@@ -110,25 +110,16 @@ auto doEqual(string pattern, string target) -> void {
 
     params.restarts_schedule = make_unique<NoRestartsSchedule>();
 
-    // ifstream pattern_infile{ pattern_filename };
-    // if (! pattern_infile)
-    //     throw GraphFileError{ pattern_filename, "unable to open pattern file", false };
-
-    // ifstream target_infile{ target_filename };
-    // if (! target_infile)
-    //     throw GraphFileError{ target_filename, "unable to open target file", false };
+    params.no_supplementals = true;
+    params.no_nds = true;
 
     // We use both as targets for equality checks
     patG = read_target_bigraph(std::stringstream(pattern), "");
     tarG = read_target_bigraph(std::stringstream(target), "");
 
     if(params.bigraph) {
-        //params.enumerate_callback = std::bind(printBigraphMappingBigraphER, graphs, std::placeholders::_1);
         params.enumerate_callback = [&](auto m) {res.mapping.push_back(m);};
     }
-
-    // Additional constraints for equality
-    //params.enumerate_callback = std::bind(printBigraphMappingBigraphER, std::placeholders::_1);
 
     /* Prepare and start timeout */
     params.timeout = make_shared<Timeout>(0s);
@@ -143,25 +134,20 @@ auto doSearch(std::string pattern, std::string target, bool all) -> void {
     params.bigraph = true;
     params.count_solutions = all;
 
+    // See if this speeds anyting up
+    params.no_supplementals = true;
+    params.no_nds = true;
+
     if (all) {
         params.restarts_schedule = make_unique<NoRestartsSchedule>();
     } else {
         params.restarts_schedule = make_unique<LubyRestartsSchedule>(LubyRestartsSchedule::default_multiplier);
     }
 
-    // ifstream pattern_infile{ pattern_filename };
-    // if (! pattern_infile)
-    //     throw GraphFileError{ pattern_filename, "unable to open pattern file", false };
-
-    // ifstream target_infile{ target_filename };
-    // if (! target_infile)
-    //     throw GraphFileError{ target_filename, "unable to open target file", false };
-
     patG = read_pattern_bigraph(std::stringstream(pattern), "");
     tarG = read_target_bigraph(std::stringstream(target), "");
 
     if(all && params.bigraph) {
-        //params.enumerate_callback = std::bind(printBigraphMappingBigraphER, graphs, std::placeholders::_1);
         params.enumerate_callback = [&](auto m) {res.mapping.push_back(m);};
     }
 
@@ -192,9 +178,13 @@ bool gbs_equal(const char* pat, const char* tar) {
     if (res.mapping.empty()) {
         return false;
     }
+
     // Just need one to be equal
+    const std::regex linkL { R"(L(\d+)_.*)" };
+    const std::regex linkAny { R"((L|C)(\d+)_.*)" };
+    std::smatch match;
+
     for (auto m : res.mapping) {
-        // std::cout << "Sol:\n" << printBigraphMappingBigraphER(m) << std::endl;
         bool failure = false;
         for (auto v : m) {
             if (patG.vertex_name(v.first).find("ROOT") != string::npos) {
@@ -203,9 +193,6 @@ bool gbs_equal(const char* pat, const char* tar) {
                 if (l != r) { failure = true; break; } // Roots are not identity
             }
 
-            const std::regex linkL { R"(L(\d+)_.*)" };
-            const std::regex linkAny { R"((L|C)(\d+)_.*)" };
-            std::smatch match;
             if(patG.vertex_label(v.first) == "LINK") {
                 int l1, l2;
                 std::string str = patG.vertex_name(v.first);

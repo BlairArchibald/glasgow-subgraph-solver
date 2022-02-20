@@ -95,15 +95,11 @@ HomomorphismModel::HomomorphismModel(const InputGraph & target, const InputGraph
     // recode pattern to a bit graph, and strip out loops
     _imp->pattern_graph_rows.resize(pattern_size * max_graphs, SVOBitset(pattern_size, 0));
     _imp->pattern_loops.resize(pattern_size);
-    for (unsigned i = 0 ; i < pattern_size ; ++i) {
-        for (unsigned j = 0 ; j < pattern_size ; ++j) {
-            if (pattern.adjacent(i, j)) {
-                if (i == j)
-                    _imp->pattern_loops[i] = 1;
-                else
-                    _imp->pattern_graph_rows[i * max_graphs + 0].set(j);
-            }
-        }
+    for (auto e = pattern.begin_edges(), e_end = pattern.end_edges() ; e != e_end ; ++e) {
+        if (e->first.first == e->first.second)
+            _imp->pattern_loops[e->first.first] = 1;
+        else
+            _imp->pattern_graph_rows[e->first.first * max_graphs + 0].set(e->first.second);
     }
 
     // re-encode and store pattern labels
@@ -127,7 +123,8 @@ HomomorphismModel::HomomorphismModel(const InputGraph & target, const InputGraph
         _imp->pattern_edge_labels.resize(pattern_size * pattern_size);
         for (unsigned i = 0 ; i < pattern_size ; ++i)
             for (unsigned j = 0 ; j < pattern_size ; ++j)
-                if (pattern.adjacent(i, j)) {
+                //if (pattern.adjacent(i, j)) {
+                if (_imp->pattern_graph_rows[i * max_graphs + 0].test(j)) {
                     auto r = edge_labels_map.emplace(pattern.edge_label(i, j), next_edge_label);
                     if (r.second)
                         ++next_edge_label;
@@ -275,12 +272,14 @@ HomomorphismModel::HomomorphismModel(const InputGraph & target, const InputGraph
         }
 
         // Build reachability matrices by bubbling up from sink nodes and performing BFS
+        // TODO: Is this what is slowing everything down? Should I use memoized data? Will that help?
         while (! pattern_reach.empty()) {
             int v = pattern_reach.front();
             pattern_reach.pop();
             pattern_unique.erase(v);
             for (unsigned a = 0 ; a != pattern_size-pattern_link_count ; ++a)
-                if (pattern.adjacent(a, v)) {
+                //if (pattern.adjacent(a, v)) {
+                if (_imp->pattern_graph_rows[a * max_graphs + 0].test(v)) {
                     _imp->pattern_graph_reachability[a] |= _imp->pattern_graph_reachability[v];
                     if (pattern_unique.insert(a).second)
                         pattern_reach.push(a);
@@ -292,7 +291,8 @@ HomomorphismModel::HomomorphismModel(const InputGraph & target, const InputGraph
             target_reach.pop();
             target_unique.erase(v);
             for (unsigned a = 0 ; a != target_size-target_link_count ; ++a)
-                if (target.adjacent(a, v)) {
+                //if (target.adjacent(a, v)) {
+                if (_imp->target_graph_rows[a * max_graphs + 0].test(v)) {
                     _imp->target_graph_reachability[a] |= _imp->target_graph_reachability[v];
                     if (target_unique.insert(a).second)
                         target_reach.push(a);
