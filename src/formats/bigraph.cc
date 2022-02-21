@@ -80,7 +80,8 @@ auto read_target_bigraph(istream && infile, const string &) -> InputGraph
         for (int j = r ; j != (n + s + r) ; ++j) {
             char x = read_char(infile);
             if (x == '1')
-                result.add_directed_edge(i, j, "dir");
+                //result.add_directed_edge(i, j, "dir");
+                result.add_directed_edge(i, j, "");
         }
 
 
@@ -119,7 +120,8 @@ auto read_target_bigraph(istream && infile, const string &) -> InputGraph
         for(int i=r; i<(r+n); i++)
             for(int j=0;j<he.second[i];j++){
                 result.add_link_node();
-                result.add_directed_edge(i, result.size()-1, "dir");
+                //result.add_directed_edge(i, result.size()-1, "dir");
+                result.add_directed_edge(i, result.size()-1, "");
                 result.set_vertex_name(result.size()-1, port_id + "_" + to_string(ports_connected)); 
                 ports_connected++;
             }
@@ -127,7 +129,8 @@ auto read_target_bigraph(istream && infile, const string &) -> InputGraph
         for(int i=(result.size()-ports_connected);i<result.size();i++)
             for(int j=(result.size()-ports_connected);j<result.size();j++)
                 if(i != j)
-                    result.add_directed_edge(i, j, "dir");
+                    //result.add_directed_edge(i, j, "dir");
+                    result.add_directed_edge(i, j, "");
 
         if(he.first){
             result.add_link_node();
@@ -145,7 +148,7 @@ auto read_target_bigraph(istream && infile, const string &) -> InputGraph
 
 auto read_pattern_bigraph(istream && infile, const string &) -> InputGraph
 {
-    InputGraph result{ 0, true, true, true };
+    InputGraph result{ 0, true, false, true };
 
     vector<string> labels;
     string t = read_str(infile);

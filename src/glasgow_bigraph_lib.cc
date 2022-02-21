@@ -48,6 +48,10 @@ static Results res;
 static InputGraph patG;
 static InputGraph tarG;
 
+// Compile regex ahead of time (and globally accessible) for performance
+const std::regex linkL { R"(L(\d+)_.*)" };
+const std::regex linkAny { R"((L|C)(\d+)_.*)" };
+
 auto printBigraphMappingBigraphER(const VertexToVertexMapping & mapping) -> std::string
 {
     std::stringstream str;
@@ -67,8 +71,6 @@ auto printBigraphMappingBigraphER(const VertexToVertexMapping & mapping) -> std:
 
     // Combine hyperedges for printing
     std::map<int, std::set<int>> hyper_edges;
-    const std::regex linkL { R"(L(\d+)_.*)" };
-    const std::regex linkAny { R"((L|C)(\d+)_.*)" };
     std::smatch match;
 
     for (auto v : mapping) {
@@ -180,8 +182,6 @@ bool gbs_equal(const char* pat, const char* tar) {
     }
 
     // Just need one to be equal
-    const std::regex linkL { R"(L(\d+)_.*)" };
-    const std::regex linkAny { R"((L|C)(\d+)_.*)" };
     std::smatch match;
 
     for (auto m : res.mapping) {
@@ -257,11 +257,7 @@ std::map<int, int> gbs_getNodes(const VertexToVertexMapping & mapping) {
 std::vector<std::pair<int,int>> gbs_getHyp(const VertexToVertexMapping & mapping) {
     std::vector<std::pair<int, int>> res;
 
-    // Combine hyperedges
-    const std::regex linkL { R"(L(\d+)_.*)" };
-    const std::regex linkAny { R"((L|C)(\d+)_.*)" };
     std::smatch match;
-
     for (auto v : mapping) {
         if(patG.vertex_label(v.first) == "LINK") {
             std::string str = patG.vertex_name(v.first);
