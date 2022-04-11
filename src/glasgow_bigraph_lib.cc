@@ -129,12 +129,12 @@ auto doEqual(string pattern, string target) -> void {
     auto result = solve_homomorphism_problem(patG, tarG, params);
 }
 
-auto doSearch(std::string pattern, std::string target, bool all) -> void {
+auto doSearch(std::string pattern, std::string target, bool all, bool count) -> void {
     HomomorphismParams params;
     params.injectivity = Injectivity::Injective;
     params.induced = false;
     params.bigraph = true;
-    params.count_solutions = all;
+    params.count_solutions = all || count;
 
     // See if this speeds anyting up
     params.no_supplementals = true;
@@ -149,7 +149,7 @@ auto doSearch(std::string pattern, std::string target, bool all) -> void {
     patG = read_pattern_bigraph(std::stringstream(pattern), "");
     tarG = read_target_bigraph(std::stringstream(target), "");
 
-    if(all && params.bigraph) {
+    if(!count && all && params.bigraph) {
         params.enumerate_callback = [&](auto m) {res.mapping.push_back(m);};
     }
 
@@ -158,19 +158,30 @@ auto doSearch(std::string pattern, std::string target, bool all) -> void {
 
     auto result = solve_homomorphism_problem(patG, tarG, params);
 
-    if(! result.mapping.empty() && !all && params.bigraph) {
+    if (count) {
+        // FIXME: This cast is bad. Look away
+        res.count = (int) result.solution_count;
+    }
+
+    if(!result.mapping.empty() && !all && params.bigraph) {
         res.mapping.push_back(result.mapping);
     }
 }
 
 void gbs_match_all(const char* pat, const char* tar) {
     res.clear();
-    doSearch(std::string(pat), std::string(tar), true);
+    doSearch(std::string(pat), std::string(tar), true, false);
 }
 
 void gbs_match_one(const char* pat, const char* tar) {
     res.clear();
-    doSearch(std::string(pat), std::string(tar), false);
+    doSearch(std::string(pat), std::string(tar), false, false);
+}
+
+int gbs_count_sols(const char* pat, const char* tar) {
+    res.clear();
+    doSearch(std::string(pat), std::string(tar), false, true);
+    return res.count;
 }
 
 bool gbs_equal(const char* pat, const char* tar) {

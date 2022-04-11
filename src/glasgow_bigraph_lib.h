@@ -9,6 +9,7 @@ class Results {
     public:
         std::vector<VertexToVertexMapping> mapping;
         unsigned next = 0;
+        int count = 0;
 
         Results () {
             mapping.clear();
@@ -26,6 +27,7 @@ extern "C" {
 // Simple interface for now, using the strings. Later we will read/write directly
 void gbs_match_all(const char* pat, const char* tar);
 void gbs_match_one(const char* pat, const char* tar);
+int gbs_count_sols(const char* pat, const char* tar);
 bool gbs_equal(const char* pat, const char* tar);
 
 VertexToVertexMapping gbs_nextsol();
