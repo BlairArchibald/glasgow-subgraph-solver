@@ -101,7 +101,7 @@ auto printBigraphMappingBigraphER(const VertexToVertexMapping & mapping) -> std:
     return str.str();
 }
 
-auto doEqual(string pattern, string target) -> void {
+auto doEqual(InputGraph pattern, InputGraph target) -> void {
     HomomorphismParams params;
     params.injectivity = Injectivity::Injective;
     //params.induced = true; // For equals we don't want extra edges unmatched
@@ -116,8 +116,8 @@ auto doEqual(string pattern, string target) -> void {
     params.no_nds = true;
 
     // We use both as targets for equality checks
-    patG = read_target_bigraph(std::stringstream(pattern), "");
-    tarG = read_target_bigraph(std::stringstream(target), "");
+    patG = pattern;
+    tarG = target;
 
     if(params.bigraph) {
         params.enumerate_callback = [&](auto m) {res.mapping.push_back(m);};
@@ -129,7 +129,7 @@ auto doEqual(string pattern, string target) -> void {
     auto result = solve_homomorphism_problem(patG, tarG, params);
 }
 
-auto doSearch(std::string pattern, std::string target, bool all, bool count) -> void {
+auto doSearch(InputGraph pattern, InputGraph target, bool all, bool count) -> void {
     HomomorphismParams params;
     params.injectivity = Injectivity::Injective;
     params.induced = false;
@@ -146,8 +146,8 @@ auto doSearch(std::string pattern, std::string target, bool all, bool count) -> 
         params.restarts_schedule = make_unique<LubyRestartsSchedule>(LubyRestartsSchedule::default_multiplier);
     }
 
-    patG = read_pattern_bigraph(std::stringstream(pattern), "");
-    tarG = read_target_bigraph(std::stringstream(target), "");
+    patG = pattern;
+    tarG = target;
 
     if(!count && all && params.bigraph) {
         params.enumerate_callback = [&](auto m) {res.mapping.push_back(m);};
@@ -168,25 +168,25 @@ auto doSearch(std::string pattern, std::string target, bool all, bool count) -> 
     }
 }
 
-void gbs_match_all(const char* pat, const char* tar) {
+void gbs_match_all(InputGraph pat, InputGraph tar) {
     res.clear();
-    doSearch(std::string(pat), std::string(tar), true, false);
+    doSearch(pat, tar, true, false);
 }
 
-void gbs_match_one(const char* pat, const char* tar) {
+void gbs_match_one(InputGraph pat, InputGraph tar) {
     res.clear();
-    doSearch(std::string(pat), std::string(tar), false, false);
+    doSearch(pat, tar, false, false);
 }
 
-int gbs_count_sols(const char* pat, const char* tar) {
+int gbs_count_sols(InputGraph pat, InputGraph tar) {
     res.clear();
-    doSearch(std::string(pat), std::string(tar), false, true);
+    doSearch(pat, tar, false, true);
     return res.count;
 }
 
-bool gbs_equal(const char* pat, const char* tar) {
+bool gbs_equal(InputGraph pat, InputGraph tar) {
     res.clear();
-    doEqual(std::string(pat), std::string(tar));
+    doEqual(pat, tar);
     // Check Interface equality
     if (res.mapping.empty()) {
         return false;

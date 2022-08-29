@@ -33,6 +33,26 @@ InputGraph::InputGraph(int size, bool v, bool e, bool f) :
         resize(size);
 }
 
+auto InputGraph::ocaml_set(int size, bool hvl, bool hel, std::map<std::pair<int, int>, std::string> edges,
+    std::vector<std::string> vl, std::vector<std::string> vn, std::vector<std::pair<int, int> > vdd, 
+    std::vector<std::pair<bool, bool> > vpc, std::vector<std::pair<int, int> > pse, std::vector<std::pair<int, int> > pre,
+    int nln, bool loopy, bool directed) -> void 
+{
+    _size = size;
+    _has_vertex_labels = hvl;
+    _has_edge_labels = hel;
+    _edges = edges;
+    _vertex_labels = vl;
+    _vertex_names = vn;
+    _vertex_directed_degrees = vdd;
+    _vertex_pattern_constraints = vpc;
+    _pattern_site_edges = pse;
+    _pattern_root_edges = pre;
+    _no_link_nodes = nln;
+    _loopy = loopy;
+    _directed = directed;
+}
+
 auto InputGraph::resize(int size) -> void
 {
     _size = size;

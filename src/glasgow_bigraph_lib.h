@@ -25,10 +25,10 @@ extern "C" {
 
 
 // Simple interface for now, using the strings. Later we will read/write directly
-void gbs_match_all(const char* pat, const char* tar);
-void gbs_match_one(const char* pat, const char* tar);
-int gbs_count_sols(const char* pat, const char* tar);
-bool gbs_equal(const char* pat, const char* tar);
+void gbs_match_all(InputGraph pat, InputGraph tar);
+void gbs_match_one(InputGraph pat, InputGraph tar);
+int gbs_count_sols(InputGraph pat, InputGraph tar);
+bool gbs_equal(InputGraph pat, InputGraph tar);
 
 VertexToVertexMapping gbs_nextsol();
 std::map<int, int> gbs_getEdges(const VertexToVertexMapping & mapping);

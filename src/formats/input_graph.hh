@@ -51,6 +51,14 @@ class InputGraph
         InputGraph() = default;
 
         /**
+         * Allows for direct creation of an InputGraph from ocaml.
+         */
+        auto ocaml_set(int size, bool hvl, bool hel, std::map<std::pair<int, int>, std::string> edges,
+        std::vector<std::string> vl, std::vector<std::string> vn, std::vector<std::pair<int, int> > vdd, 
+        std::vector<std::pair<bool, bool> > vpc, std::vector<std::pair<int, int> > pse, std::vector<std::pair<int, int> > pre,
+        int nln, bool loopy, bool directed) -> void;
+
+        /**
          * Number of vertices.
          */
         auto size() const -> int;
