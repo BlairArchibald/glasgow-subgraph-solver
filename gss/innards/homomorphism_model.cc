@@ -12,6 +12,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <queue>
 
 using namespace gss;
 using namespace gss::innards;
@@ -26,6 +27,7 @@ using std::max;
 using std::nullopt;
 using std::optional;
 using std::pair;
+using std::queue;
 using std::set;
 using std::shared_ptr;
 using std::string;
@@ -139,6 +141,13 @@ struct HomomorphismModel::Imp
 
     mutable list<string> supplemental_graph_names;
 
+    // Bigraphs
+    vector<pair<int, int> > pattern_dir_degrees, target_dir_degrees;
+    vector<pair<bool, bool> > pattern_big_constraints;
+    vector<SVOBitset> target_graph_reachability, pattern_graph_reachability;
+    vector<SVOBitset> pattern_site_reachability, pattern_root_reachability;
+    set<int> pattern_anchor_nodes;
+
     Imp(const HomomorphismParams & p, const std::shared_ptr<Proof> & r) :
         params(p),
         proof(r)
@@ -151,7 +160,9 @@ HomomorphismModel::HomomorphismModel(const InputGraph & target, const InputGraph
     _imp(new Imp(params, proof)),
     max_graphs(calculate_n_shape_graphs(params)),
     pattern_size(pattern.size()),
-    target_size(target.size())
+    pattern_link_count(pattern.get_no_link_nodes()),
+    target_size(target.size()),
+    target_link_count(target.get_no_link_nodes())
 {
     if (_imp->params.clique_size_constraints)
         _imp->max_graphs_for_clique_size_constraints = (_imp->params.clique_size_constraints_on_supplementals ? max_graphs : 1);
@@ -162,7 +173,7 @@ HomomorphismModel::HomomorphismModel(const InputGraph & target, const InputGraph
     if (max_graphs > 8 * sizeof(PatternAdjacencyBitsType))
         throw UnsupportedConfiguration{"Supplemental graphs won't fit in the chosen bitset size"};
 
-    if (_imp->proof) {
+    if (_imp->proof || params.bigraph) {
         for (int v = 0; v < pattern.size(); ++v)
             _imp->pattern_vertex_proof_names.push_back(pattern.vertex_name(v));
         for (int v = 0; v < target.size(); ++v)
@@ -268,10 +279,34 @@ HomomorphismModel::HomomorphismModel(const InputGraph & target, const InputGraph
         return *n;
     };
 
+    // Symmetry break bigraph link nodes
+    list<pair<unsigned, unsigned> > pattern_less_thans_in_wrong_order;
+    if(params.bigraph) {
+        for (unsigned a = 0 ; a != pattern_size-pattern_link_count ; a++) {
+            unsigned int prev_no_children = 999999999;
+            unsigned int prev_same_clique = 999999999;
+            for (unsigned b = pattern_size-pattern_link_count ; b != pattern_size ; b++) {
+                if(_imp->pattern_graph_rows[a * max_graphs + 0].test(b)) {
+                    if(_imp->pattern_graph_rows[b * max_graphs + 0].count() == 0) {
+                        if(prev_no_children != 999999999) {
+                            pattern_less_thans_in_wrong_order.push_back(std::make_pair(prev_no_children, b));
+                        }
+                        prev_no_children = b;
+                    }
+                    else {
+                        if (prev_same_clique != 999999999 && _imp->pattern_graph_rows[prev_same_clique * max_graphs + 0].test(b)) {
+                            pattern_less_thans_in_wrong_order.push_back(std::make_pair(prev_same_clique, b));
+                        }
+                        prev_same_clique = b;
+                    }
+                }
+            }
+        }
+    }
+
     // pattern less than constraints
-    if (! _imp->params.pattern_less_constraints.empty()) {
+    if (! _imp->params.pattern_less_constraints.empty() || !pattern_less_thans_in_wrong_order.empty()) {
         _imp->has_less_thans = true;
-        list<pair<unsigned, unsigned>> pattern_less_thans_in_wrong_order;
         for (auto & [a, b] : _imp->params.pattern_less_constraints) {
             auto a_decoded = decode(pattern, a), b_decoded = decode(pattern, b);
             pattern_less_thans_in_wrong_order.emplace_back(a_decoded, b_decoded);
@@ -337,6 +372,88 @@ HomomorphismModel::HomomorphismModel(const InputGraph & target, const InputGraph
             _imp->target_cliques_best_knowns.push_back(vector<int>(target.size(), 0));
         }
         _imp->largest_pattern_clique.resize(_imp->max_graphs_for_clique_size_constraints);
+    }
+
+    if (params.bigraph) {
+
+        _imp->pattern_dir_degrees.resize(pattern_size);
+        _imp->pattern_big_constraints.resize(pattern_size-pattern_link_count);
+        _imp->target_dir_degrees.resize(target_size);
+
+        _imp->pattern_graph_reachability.resize(pattern_size-pattern_link_count, SVOBitset{ pattern_size-pattern_link_count, 0 });
+        _imp->target_graph_reachability.resize(target_size-target_link_count, SVOBitset{ target_size-target_link_count, 0 });
+
+        int site_size = 0;
+        for (int a = 0 ; a != pattern.no_pattern_site_edges() ; ++a)
+            if (pattern.get_pattern_site_edge(a).first + 1 > site_size)
+                site_size = pattern.get_pattern_site_edge(a).first + 1;
+        _imp->pattern_site_reachability.resize(site_size, SVOBitset{ pattern_size-pattern_link_count, 0 });
+
+        for (int a = 0 ; a != pattern.no_pattern_site_edges() ; ++a)
+            _imp->pattern_site_reachability[pattern.get_pattern_site_edge(a).first].set(pattern.get_pattern_site_edge(a).second);
+
+        int root_size = 0;
+        for (int a = 0 ; a != pattern.no_pattern_root_edges() ; ++a)
+            if (pattern.get_pattern_root_edge(a).first + 1 > root_size)
+                root_size = pattern.get_pattern_root_edge(a).first + 1;
+        _imp->pattern_root_reachability.resize(root_size, SVOBitset{ pattern_size-pattern_link_count, 0 });
+
+        for (int a = 0 ; a != pattern.no_pattern_root_edges() ; ++a)
+            _imp->pattern_root_reachability[pattern.get_pattern_root_edge(a).first].set(pattern.get_pattern_root_edge(a).second);
+
+        set<int> pattern_unique;
+        queue<int> pattern_reach;
+
+        set<int> target_unique;
+        queue<int> target_reach;
+
+        // Set in-out degrees of each vertex for bigraph root and site constraints
+        for (unsigned a = 0 ; a < pattern_size ; ++a) {
+            _imp->pattern_dir_degrees[a].first = pattern.in_degree(a);
+            _imp->pattern_dir_degrees[a].second = pattern.out_degree(a);
+        }
+        for (unsigned a = 0 ; a < pattern_size-pattern_link_count ; ++a) {
+            _imp->pattern_big_constraints[a] = pattern.get_big_constraint(a);
+            _imp->pattern_graph_reachability[a].set(a);
+            if (pattern.out_degree(a) == 0)
+                pattern_reach.push(a);
+        }
+
+        for (unsigned a = 0 ; a != target_size ; ++a) {
+            _imp->target_dir_degrees[a].first = target.in_degree(a);
+            _imp->target_dir_degrees[a].second = target.out_degree(a);
+        }
+
+        for (unsigned a = 0 ; a != target_size-target_link_count ; ++a) {
+            _imp->target_graph_reachability[a].set(a);
+            if (target.out_degree(a) == 0)
+                target_reach.push(a);
+        }
+
+        // Build reachability matrices by bubbling up from sink nodes and performing BFS
+        while (! pattern_reach.empty()) {
+            int v = pattern_reach.front();
+            pattern_reach.pop();
+            pattern_unique.erase(v);
+            for (unsigned a = 0 ; a != pattern_size-pattern_link_count ; ++a)
+                if (_imp->pattern_graph_rows[a * max_graphs + 0].test(v)) {
+                    _imp->pattern_graph_reachability[a] |= _imp->pattern_graph_reachability[v];
+                    if (pattern_unique.insert(a).second)
+                        pattern_reach.push(a);
+                }
+        }
+
+        while (! target_reach.empty()) {
+            int v = target_reach.front();
+            target_reach.pop();
+            target_unique.erase(v);
+            for (unsigned a = 0 ; a != target_size-target_link_count ; ++a)
+                if (_imp->target_graph_rows[a * max_graphs + 0].test(v)) {
+                    _imp->target_graph_reachability[a] |= _imp->target_graph_reachability[v];
+                    if (target_unique.insert(a).second)
+                        target_reach.push(a);
+                }
+        }
     }
 }
 
@@ -587,6 +704,58 @@ auto HomomorphismModel::_check_degree_compatibility(
     return true;
 }
 
+auto HomomorphismModel::_check_bigraph_equality_regions(int p, int t) const -> bool
+{
+    return ((_imp->pattern_vertex_proof_names[p].find("ROOT") == string::npos) ||
+        (_imp->target_vertex_proof_names[t].find("ROOT") == string::npos) ||
+        (_imp->pattern_vertex_proof_names[p] == _imp->target_vertex_proof_names[t]));
+}
+
+auto HomomorphismModel::_check_bigraph_equality_links(int p, int t) const -> bool
+{
+    string name1 = _imp->pattern_vertex_proof_names[p];
+    string name2 = _imp->target_vertex_proof_names[t];
+
+    if ((name1.find(":OPX:") == string::npos) || (name2.find(":OPX:") == string::npos))
+        return true;
+
+    name1 = name1.substr(5, name1.length()-1);
+    name1 = name1.substr(0, name1.find(':'));
+
+    name2 = name2.substr(5, name2.length()-1);
+    name2 = name2.substr(0, name2.find(':'));
+
+    return name1 == name2;
+}
+
+auto HomomorphismModel::_check_bigraph_degree_compatibility(int p, int t) const -> bool
+{
+    // Cannot match a place node with a link node
+    if(p >= pattern_size-pattern_link_count && t < target_size-target_link_count)
+        return false;
+    if(p < pattern_size-pattern_link_count && t >= target_size-target_link_count)
+        return false;
+
+    // Closed hyperedges need same degree to match
+    if(_imp->pattern_vertex_proof_names[p].find("C_LINK") != string::npos && _imp->target_vertex_proof_names[t].find("C_LINK") != string::npos)
+        if(_imp->pattern_dir_degrees[p].first != _imp->target_dir_degrees[t].first)
+            return false;
+
+    if(p >= pattern_size-pattern_link_count && t >= target_size-target_link_count)
+        return true;
+
+    // Place matching degree constraints
+    if ((! _imp->pattern_big_constraints[p].first) && (_imp->pattern_dir_degrees[p].first != _imp->target_dir_degrees[t].first))
+        return false;
+    if (_imp->pattern_big_constraints[p].first && (_imp->pattern_dir_degrees[p].first > _imp->target_dir_degrees[t].first))
+        return false;
+    if ((! _imp->pattern_big_constraints[p].second) && (_imp->pattern_dir_degrees[p].second != _imp->target_dir_degrees[t].second))
+        return false;
+    if (_imp->pattern_big_constraints[p].second && (_imp->pattern_dir_degrees[p].second > _imp->target_dir_degrees[t].second))
+        return false;
+    return true;
+}
+
 auto HomomorphismModel::initialise_domains(vector<HomomorphismDomain> & domains) const -> bool
 {
     unsigned max_graphs_for_degree_things = (_imp->params.injectivity == Injectivity::LocallyInjective ? 1 : max_graphs);
@@ -627,6 +796,12 @@ auto HomomorphismModel::initialise_domains(vector<HomomorphismDomain> & domains)
             else if (! _check_degree_compatibility(i, j, max_graphs_for_degree_things, patterns_ndss, targets_ndss, _imp->proof.get()))
                 ok = false;
             else if (! _check_clique_compatibility(i, j))
+                ok = false;
+            else if (_imp->params.bigraph && ! _check_bigraph_degree_compatibility(i, j))
+                ok = false;
+            else if (_imp->params.bigraph && _imp->params.bigraph_equality_check && ! _check_bigraph_equality_regions(i, j))
+                ok = false;
+            else if (_imp->params.bigraph && _imp->params.bigraph_equality_check && ! _check_bigraph_equality_links(i, j))
                 ok = false;
 
             if (ok)
@@ -1309,4 +1484,116 @@ auto HomomorphismModel::add_extra_stats(list<string> & x) const -> void
     }
 
     x.emplace_back(join("supplemental_graph_names =", _imp->supplemental_graph_names));
+}
+
+auto HomomorphismModel::check_extra_bigraph_constraints(const VertexToVertexMapping & mapping) const -> bool
+{
+    // Find transitive closure violations
+    for (unsigned i = 0 ; i != pattern_size-pattern_link_count ; ++i) {
+        if (_imp->pattern_big_constraints[i].second) {
+            set<int> child_mappings;
+
+            // Get all corresponding target node's children with a mapping
+            for (unsigned j = 0 ; j != pattern_size-pattern_link_count ; ++j)
+                if (i != j &&
+                        _imp->pattern_graph_rows[i * max_graphs].test(j) &&
+                        _imp->pattern_graph_reachability[i].test(j))
+                    child_mappings.insert(mapping.find(j)->second);
+
+            // Check if pattern node only points to sites that are shared
+            bool sites_okay = false;
+            vector<int> site_mappings;
+            for (unsigned j = 0 ; j != _imp->pattern_site_reachability.size() ; ++j) {
+                if (_imp->pattern_site_reachability[j].test(i) && _imp->pattern_site_reachability[j].count() == 1) {
+                    sites_okay = true;
+                    break;
+                }
+                if (_imp->pattern_site_reachability[j].test(i))
+                    site_mappings.push_back(j);
+            }
+
+            // For all target node's children without a mapping, check if it can reach any children of a root node
+            for (unsigned j = 0 ; j != target_size-target_link_count ; ++j) {
+                if (mapping.find(i)->second != int(j) &&
+                        _imp->target_graph_rows[mapping.find(i)->second * max_graphs].test(j) &&
+                        _imp->target_graph_reachability[mapping.find(i)->second].test(j) &&
+                        child_mappings.find(j) == child_mappings.end()) {
+                    for (unsigned k = 0 ; k != pattern_size-pattern_link_count ; ++k)
+                        if (_imp->pattern_big_constraints[k].first && _imp->target_graph_reachability[j].test(mapping.find(k)->second))
+                            return false;
+
+                    // If only points to shared sites, check that all unmapped children have an adjacency superset of a site
+                    if (! sites_okay) {
+                        bool site_sat = true;
+                        for (unsigned k = 0 ; k != site_mappings.size() ; ++k) {
+                            site_sat = true;
+                            for (unsigned l = 0 ; l != pattern_size-pattern_link_count ; ++l) {
+                                if (l != i && _imp->pattern_site_reachability[site_mappings[k]].test(l) &&
+                                        ! (_imp->target_graph_rows[mapping.find(l)->second * max_graphs].test(j) &&
+                                            _imp->target_graph_reachability[mapping.find(l)->second].test(j))) {
+                                    site_sat = false;
+                                    break;
+                                }
+                            }
+                            if (site_sat)
+                                break;
+                        }
+
+                        if (! site_sat)
+                            return false;
+                    }
+                }
+            }
+        }
+
+        // Check if pattern node only is pointed to by roots that are shared
+        if (_imp->pattern_big_constraints[i].first) {
+            vector<int> root_mappings;
+            bool roots_okay = false;
+            for (unsigned j = 0 ; j != _imp->pattern_root_reachability.size() ; ++j) {
+                if (_imp->pattern_root_reachability[j].test(i) && _imp->pattern_root_reachability[j].count() == 1) {
+                    roots_okay = true;
+                    break;
+                }
+                if (_imp->pattern_root_reachability[j].test(i))
+                    root_mappings.push_back(j);
+            }
+
+            if (! roots_okay) {
+                set<int> parent_mappings;
+                for (unsigned j = 0 ; j != pattern_size-pattern_link_count ; ++j)
+                    if (i != j &&
+                            _imp->pattern_graph_rows[i * max_graphs].test(j) &&
+                            _imp->pattern_graph_reachability[j].test(i))
+                        parent_mappings.insert(mapping.find(j)->second);
+
+                // If only points to shared roots, check that all unmapped parents have an adjacency superset of a root
+                for (unsigned j = 0 ; j != target_size-target_link_count ; ++j) {
+                    if (mapping.find(i)->second != int(j) &&
+                            _imp->target_graph_rows[j * max_graphs].test(mapping.find(i)->second) &&
+                            _imp->target_graph_reachability[j].test(mapping.find(i)->second) &&
+                            ! parent_mappings.count(j)) {
+                        bool root_sat = true;
+                        for (unsigned k = 0 ; k != root_mappings.size() ; ++k) {
+                            root_sat = true;
+                            for (unsigned l = 0 ; l < pattern_size-pattern_link_count ; ++l){
+                                if (l != i && _imp->pattern_root_reachability[root_mappings[k]].test(l) &&
+                                        ! (_imp->target_graph_rows[j * max_graphs].test(mapping.find(l)->second) &&
+                                            _imp->target_graph_reachability[j].test(mapping.find(l)->second))) {
+                                    root_sat = false;
+                                    break;
+                                }
+                            }
+                            if (root_sat)
+                                break;
+                        }
+                        if (! root_sat)
+                            return false;
+                    }
+                }
+            }
+        }
+    }
+
+    return true;
 }

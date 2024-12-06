@@ -109,6 +109,26 @@ public:
     auto directed() const -> bool;
 
     auto for_each_edge(const std::function<auto(int, int, std::string_view)->void> &) const -> void;
+
+    /**
+     * Bigraphs
+     */
+    auto add_pattern_site_edge(int a, int b) -> void;
+    auto get_pattern_site_edge(int s) const -> std::pair<int, int>;
+    auto no_pattern_site_edges() const -> int;
+    auto add_pattern_root_edge(int a, int b) -> void;
+    auto get_pattern_root_edge(int s) const -> std::pair<int, int>;
+    auto no_pattern_root_edges() const -> int;
+    auto add_link_node() -> void;
+    auto get_no_link_nodes() const -> int;
+    auto in_degree(int a) const -> int;
+    auto out_degree(int a) const -> int;
+    auto set_child_of_root(int v) -> void;
+    auto set_parent_of_site(int v) -> void;
+    auto get_big_constraint(int v) const -> std::pair<bool, bool>;
+    // Debugging
+    auto toString() const -> std::string;
+    // auto toDot() const -> std::string;
 };
 
 #endif

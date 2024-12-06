@@ -20,3 +20,6 @@ target_link_libraries(create_random_graph LINK_PUBLIC ${Boost_LIBRARIES})
 
 add_executable(convert_to_lad convert_to_lad.cc)
 target_link_libraries(convert_to_lad LINK_PUBLIC ${Boost_LIBRARIES})
+
+add_library(glasgow_bigraph_lib_static STATIC "glasgow_bigraph_lib.cc")
+add_library(glasgow_bigraph_lib_shared SHARED "glasgow_bigraph_lib.cc")

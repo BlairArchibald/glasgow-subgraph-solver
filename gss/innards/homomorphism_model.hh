@@ -47,11 +47,17 @@ namespace gss::innards
 
         auto _prove_no_clique(unsigned g, int p, int t) const -> void;
 
+        auto _check_bigraph_equality_regions(int p, int t) const -> bool;
+        auto _check_bigraph_equality_links(int p, int t) const -> bool;
+        auto _check_bigraph_degree_compatibility(int p, int t) const -> bool;
+
     public:
         using PatternAdjacencyBitsType = uint8_t;
 
         const unsigned max_graphs;
         unsigned pattern_size, target_size;
+        // Bigraphs
+        unsigned pattern_link_count, target_link_count;
 
         auto has_less_thans() const -> bool;
         auto has_occur_less_thans() const -> bool;
@@ -91,6 +97,9 @@ namespace gss::innards
         auto initialise_domains(std::vector<HomomorphismDomain> & domains) const -> bool;
 
         auto add_extra_stats(std::list<std::string> &) const -> void;
+
+        // Bigraphs
+        auto check_extra_bigraph_constraints(const VertexToVertexMapping & mapping) const -> bool;
     };
 }
 

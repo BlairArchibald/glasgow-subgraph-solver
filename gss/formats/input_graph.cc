@@ -6,11 +6,15 @@
 #include <cstdint>
 #include <iterator>
 #include <limits>
+#include <iostream>
 #include <map>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
+#include <boost/format.hpp>
 #include <boost/bimap.hpp>
 #include <boost/bimap/unordered_set_of.hpp>
 #include <boost/container/allocator.hpp>
@@ -61,6 +65,15 @@ struct InputGraph::Imp
     vector<string> vertex_labels;
     Names vertex_names;
     bool loopy = false, directed = false;
+
+    // Bigraphs
+    int no_link_nodes = 0;
+
+    vector<pair<int, int> > vertex_directed_degrees;
+    vector<pair<bool, bool> > vertex_pattern_constraints;
+
+    vector<pair<int, int> > pattern_site_edges;
+    vector<pair<int, int> > pattern_root_edges;
 };
 
 InputGraph::InputGraph(int size, bool v, bool e) :
@@ -83,6 +96,8 @@ auto InputGraph::resize(int size) -> void
 {
     _imp->size = size;
     _imp->vertex_labels.resize(size);
+    _imp->vertex_pattern_constraints.resize(size);
+    _imp->vertex_directed_degrees.resize(size);
 }
 
 auto InputGraph::add_edge(int a, int b) -> void
@@ -93,21 +108,32 @@ auto InputGraph::add_edge(int a, int b) -> void
         _imp->loopy = true;
 }
 
-auto InputGraph::add_directed_edge(int a, int b, string_view label) -> void
+auto InputGraph::add_directed_edge(int a, int b, std::string_view label) -> void
 {
     sanity_check_name(label, "edge label");
 
     _imp->directed = true;
 
     _imp->edges.emplace(make_pair(a, b), label).first->second = label;
+
     if (a == b)
         _imp->loopy = true;
+
+    // Bigraphs
+    if(vertex_label(a) != "LINK" && vertex_label(b) != "LINK"){
+        _imp->vertex_directed_degrees[b].first++;
+        _imp->vertex_directed_degrees[a].second++;
+    }
+
+    if(vertex_label(a) == "LINK" && vertex_label(b) == "ANCHOR")
+        _imp->vertex_directed_degrees[b].first++;
 }
 
 auto InputGraph::adjacent(int a, int b) const -> bool
 {
     return _imp->edges.count({a, b});
 }
+
 
 auto InputGraph::size() const -> int
 {
@@ -117,6 +143,48 @@ auto InputGraph::size() const -> int
 auto InputGraph::number_of_directed_edges() const -> int
 {
     return _imp->edges.size();
+}
+
+auto InputGraph::add_pattern_site_edge(int a, int b) -> void
+{
+    _imp->pattern_site_edges.push_back(make_pair(a, b));
+}
+
+auto InputGraph::get_pattern_site_edge(int s) const -> pair<int, int>
+{
+    return _imp->pattern_site_edges[s];
+}
+
+auto InputGraph::no_pattern_site_edges() const -> int
+{
+    return _imp->pattern_site_edges.size();
+}
+
+
+auto InputGraph::add_pattern_root_edge(int a, int b) -> void
+{
+    _imp->pattern_root_edges.push_back(make_pair(a, b));
+}
+
+auto InputGraph::get_pattern_root_edge(int r) const -> pair<int, int>
+{
+    return _imp->pattern_root_edges[r];
+}
+
+auto InputGraph::no_pattern_root_edges() const -> int
+{
+    return _imp->pattern_root_edges.size();
+}
+
+auto InputGraph::add_link_node() -> void
+{
+    resize(_imp->size+1);
+    // set_vertex_label(_size-1, "LINK");
+}
+
+auto InputGraph::get_no_link_nodes() const -> int
+{
+    return _imp->no_link_nodes;
 }
 
 auto InputGraph::loopy() const -> bool
@@ -131,10 +199,25 @@ auto InputGraph::degree(int a) const -> int
     return distance(lower, upper);
 }
 
+auto InputGraph::in_degree(int a) const -> int
+{
+    return _imp->vertex_directed_degrees[a].first;
+}
+
+auto InputGraph::out_degree(int a) const -> int
+{
+    return _imp->vertex_directed_degrees[a].second;
+}
+
 auto InputGraph::set_vertex_label(int v, string_view l) -> void
 {
     sanity_check_name(l, "vertex label");
-    _imp->vertex_labels[v] = l;
+    if (l != "") {
+        _imp->vertex_labels[v] = l;
+    }
+    // Bigraphs (TODO: Subclass)
+    if (std::string_view(l) == "LINK") { _imp->no_link_nodes++; }
+    else if (std::string_view(l) == "ANCHOR") { _imp->no_link_nodes++; }
 }
 
 auto InputGraph::vertex_label(int v) const -> string_view
@@ -146,7 +229,24 @@ auto InputGraph::set_vertex_name(int v, string_view l) -> void
 {
     sanity_check_name(l, "vertex name");
     _imp->vertex_names.left.erase(v);
-    _imp->vertex_names.insert(Names::value_type{v, string{l}});
+    if (l != "") {
+        _imp->vertex_names.insert(Names::value_type{v, string{l}});
+    }
+}
+
+auto InputGraph::set_child_of_root(int v) -> void
+{
+    _imp->vertex_pattern_constraints.at(v).first = true;
+}
+
+auto InputGraph::set_parent_of_site(int v) -> void
+{
+    _imp->vertex_pattern_constraints.at(v).second = true;
+}
+
+auto InputGraph::get_big_constraint(int v) const -> pair<bool, bool>
+{
+    return _imp->vertex_pattern_constraints.at(v);
 }
 
 auto InputGraph::vertex_name(int v) const -> string
@@ -192,3 +292,71 @@ auto InputGraph::for_each_edge(const function<auto(int, int, std::string_view)->
     for (auto & [e, l] : _imp->edges)
         c(e.first, e.second, l);
 }
+
+auto InputGraph::toString() const -> std::string
+{
+    std::ostringstream ss;
+    ss << (boost::format("Size: %d\n") % _imp->size);
+    ss << (boost::format("Vertex Labels: %b\n") % _imp->has_vertex_labels);
+    ss << (boost::format("Edge Labels: %b\n") % _imp->has_edge_labels);
+    ss << (boost::format("Link nodes: %d\n") % _imp->no_link_nodes);
+    ss << (boost::format("Loopy: %b\n") % _imp->loopy);
+    ss << (boost::format("Directed: %b\n") % _imp->directed);
+    ss << boost::format("Vertex Labels:\n");
+    for (const auto & l : _imp->vertex_labels) {
+        ss << l << ";";
+    }
+    ss << boost::format("\nVertex Names:\n");
+    for (const auto & l : _imp->vertex_names) {
+        ss << l.left << "->" << l.right << ";";
+    }
+    ss << boost::format("\nEdges: %d\n") % _imp->edges.size();
+    for (const auto & l : _imp->edges) {
+        auto p = l.first;
+        ss << boost::format("[%d-[%s]->%d];") % p.first % l.second % p.second;
+    }
+    ss << boost::format("\nPattern Root Edges: %d\n") % _imp->pattern_root_edges.size();
+    for (const auto & p : _imp->pattern_root_edges) {
+        ss << boost::format("[%d-->%d];") % p.first % p.second;
+    }
+    ss << boost::format("\nPattern Site Edges: %d\n") % _imp->pattern_site_edges.size();
+    for (const auto & p : _imp->pattern_site_edges) {
+        ss << boost::format("[%d-->%d];") % p.first % p.second;
+    }
+    ss << boost::format("\nVertex Directed Degrees: %d\n") % _imp->vertex_directed_degrees.size();
+    for (const auto & p : _imp->vertex_directed_degrees) {
+        ss << boost::format("[%d-->%d];") % p.first % p.second;
+    }
+    ss << boost::format("\nVertex Pattern Constraints: %d\n") % _imp->vertex_pattern_constraints.size();
+    for (const auto & p : _imp->vertex_pattern_constraints) {
+        auto x = "F";
+        auto y = "F";
+        if (p.first) x = "T";
+        if (p.second) x = "F";
+        ss << boost::format("[%s-->%s];") % x % y;
+    }
+    ss << "\n";
+    return ss.str();
+}
+
+/*
+auto InputGraph::toDot() const -> std::string
+{
+    std::ostringstream ss;
+    ss << "digraph {";
+    for (auto i = 0; i < _imp->size; ++i) {
+        ss << format("\n %d [label=\"%s | %s | %d | %d \"]")
+            % i
+            % _imp->vertex_labels[i]
+            % _imp->vertex_names[i]
+            % _imp->vertex_directed_degrees[i].first
+            % _imp->vertex_directed_degrees[i].second;
+    }
+    for (const auto & l : _imp->edges) {
+        auto p = l.first;
+        ss << format("\n%d -> %d") % p.first % p.second;
+    }
+    ss << "\n}";
+    return ss.str();
+}
+*/

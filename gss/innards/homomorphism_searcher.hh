@@ -95,6 +95,8 @@ namespace gss::innards
 
         auto both_in_the_neighbourhood_of_some_vertex(unsigned v, unsigned w) -> bool;
 
+        auto propagate_bigraph_hyperedge_constraints(Domains & new_domains, const HomomorphismAssignment & current_assignment) -> bool;
+
         auto propagate_simple_constraints(Domains & new_domains, const HomomorphismAssignment & current_assignment) -> bool;
 
         auto propagate_less_thans(Domains & new_domains) -> bool;

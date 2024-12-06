@@ -428,6 +428,8 @@ auto gss::solve_homomorphism_problem(
             throw UnsupportedConfiguration{"Proof logging can currently only be used with injectivity or non-injectivity"};
         if (pattern.has_vertex_labels() || pattern.has_edge_labels())
             throw UnsupportedConfiguration{"Proof logging cannot yet be used on labelled graphs"};
+        if (params.bigraph)
+            throw UnsupportedConfiguration{ "Proof logging cannot yet be used for bigraphs" };
 
         proof = make_shared<Proof>(*params.proof_options);
 
@@ -512,6 +514,27 @@ auto gss::solve_homomorphism_problem(
         ++result.solution_count;
 
         return result;
+    }
+
+    // If doing bigraph equality checking, fail immediately if the number of
+    // regions, sites, entities or hyperedge ports aren't consistent
+    if(params.bigraph && params.bigraph_equality_check) {
+        if((pattern.size() != target.size()) || (pattern.get_no_link_nodes() != target.get_no_link_nodes()))
+            return HomomorphismResult{ };
+
+        int p_regions = 0;
+        int p_sites = 0;
+        int t_regions = 0;
+        int t_sites = 0;
+        for(int i = 0; i < pattern.size(); i++) {
+            if(pattern.vertex_name(i) == "ROOT") p_regions++;
+            if(pattern.vertex_name(i) == "SITE") p_sites++;
+            if(target.vertex_name(i) == "ROOT") t_regions++;
+            if(target.vertex_name(i) == "SITE") t_sites++;
+        }
+        if(p_regions != t_regions || p_sites != t_sites) {
+            return HomomorphismResult{ };
+        }
     }
 
     // is the pattern a clique? if so, use a clique algorithm instead

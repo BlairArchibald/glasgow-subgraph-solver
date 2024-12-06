@@ -117,6 +117,10 @@ namespace gss
 
         /// Optional proof options
         std::optional<ProofOptions> proof_options;
+
+        /// bigraphs
+        bool bigraph = false;
+        bool bigraph_equality_check = false;
     };
 
     struct HomomorphismResult

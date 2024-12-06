@@ -102,6 +102,15 @@ auto HomomorphismSearcher::restarting_search(
     // find ourselves a domain, or succeed if we're all assigned
     const HomomorphismDomain * branch_domain = find_branch_domain(domains);
     if (! branch_domain) {
+        if (params.bigraph) {
+            VertexToVertexMapping mapping;
+            expand_to_full_result(assignments, mapping);
+
+            if (! model.check_extra_bigraph_constraints(mapping)) {
+                return SearchResult::Unsatisfiable;
+            }
+        }
+
         if (params.lackey) {
             VertexToVertexMapping mapping;
             expand_to_full_result(assignments, mapping);
@@ -723,6 +732,11 @@ auto HomomorphismSearcher::propagate_occur_less_thans(
     return true;
 }
 
+auto HomomorphismSearcher::propagate_bigraph_hyperedge_constraints(Domains &, const HomomorphismAssignment &) -> bool
+{
+    return true;
+}
+
 auto HomomorphismSearcher::propagate(bool initial, Domains & new_domains, HomomorphismAssignments & assignments, bool propagate_using_lackey) -> bool
 {
     // nogoods might be watching things in initial assignments. this is possibly not the
@@ -806,6 +820,12 @@ auto HomomorphismSearcher::propagate(bool initial, Domains & new_domains, Homomo
 
             // propagate simple all different and adjacency
             if (! propagate_simple_constraints(new_domains, *current_assignment))
+                return false;
+
+            // propagate bigraph stuff
+            // TODO-BA: Check if this is should be inside this if or outside
+            // We don't actually check hyperedges now anyway
+            if (params.bigraph && ! propagate_bigraph_hyperedge_constraints(new_domains, *current_assignment))
                 return false;
         }
 
