@@ -43,6 +43,7 @@ if (NOT GCS_DEBUG_MODE)
     add_compile_options(-O3)
 endif (NOT GCS_DEBUG_MODE)
 
+if (NOT DISABLE_TESTS)
 Include(FetchContent)
 Set(FETCHCONTENT_QUIET FALSE)
 FetchContent_Declare(
@@ -55,6 +56,7 @@ FetchContent_MakeAvailable(Catch2)
 SET(CATCH_CONFIG_ENABLE_ALL_STRINGMAKERS ON)
 
 enable_testing()
+endif (NOT DISABLE_TESTS)
 
 include_directories(.)
 add_subdirectory(gss)
