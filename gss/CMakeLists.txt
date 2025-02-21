@@ -34,7 +34,13 @@ add_library(glasgow_subgraphs
         formats/vfmcs.cc)
 
 target_link_libraries(glasgow_subgraphs LINK_PUBLIC ${Boost_LIBRARIES})
+set_target_properties(glasgow_subgraphs PROPERTIES PUBLIC_HEADER "homomorphism.hh")
 link_libraries(glasgow_subgraphs)
+include(GNUInstallDirs)
+install(TARGETS glasgow_subgraphs
+        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gss
+)
+
 
 
 if (NOT DISABLE_TESTS)
