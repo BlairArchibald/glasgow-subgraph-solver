@@ -17,6 +17,11 @@
 
 #include <unistd.h>
 
+#define ROOT_COL "0"
+#define SITE_COL "1"
+#define LINK_COL "2"
+#define ANCHOR_COL "3"
+
 using std::boolalpha;
 using std::cerr;
 using std::cout;
@@ -79,7 +84,7 @@ std::map<int, int> gbs_getNodes(const VertexToVertexMapping & mapping) {
     std::map<int, int> res;
     for (auto v : mapping) {
         if(patG->vertex_name(v.first).find("C_LINK") == string::npos
-           && patG->vertex_label(v.first) != "LINK") {
+           && patG->vertex_label(v.first) != LINK_COL) {
             int k = std::stoi(patG->vertex_name(v.first));
             int val = std::stoi(tarG->vertex_name(v.second));
             res[k] = val;
@@ -93,7 +98,7 @@ std::vector<std::pair<int,int>> gbs_getHyp(const VertexToVertexMapping & mapping
 
     std::smatch match;
     for (auto v : mapping) {
-        if(patG->vertex_label(v.first) == "LINK") {
+        if(patG->vertex_label(v.first) == LINK_COL) {
             std::string str = patG->vertex_name(v.first);
             if (regex_match(str, match, linkOpen)) {
                 int l1 = stoi(match.str(1));

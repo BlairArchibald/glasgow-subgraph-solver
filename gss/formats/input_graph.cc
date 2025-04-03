@@ -19,6 +19,11 @@
 #include <boost/bimap/unordered_set_of.hpp>
 #include <boost/container/allocator.hpp>
 
+#define ROOT_COL "0"
+#define SITE_COL "1"
+#define LINK_COL "2"
+#define ANCHOR_COL "3"
+
 using std::back_inserter;
 using std::count_if;
 using std::distance;
@@ -120,12 +125,12 @@ auto InputGraph::add_directed_edge(int a, int b, std::string_view label) -> void
         _imp->loopy = true;
 
     // Bigraphs
-    if(vertex_label(a) != "LINK" && vertex_label(b) != "LINK"){
+    if(vertex_label(a) != LINK_COL && vertex_label(b) != LINK_COL){
         _imp->vertex_directed_degrees[b].first++;
         _imp->vertex_directed_degrees[a].second++;
     }
 
-    if(vertex_label(a) == "LINK" && vertex_label(b) == "ANCHOR")
+    if(vertex_label(a) == LINK_COL && vertex_label(b) == ANCHOR_COL)
         _imp->vertex_directed_degrees[b].first++;
 }
 
@@ -216,8 +221,8 @@ auto InputGraph::set_vertex_label(int v, string_view l) -> void
         _imp->vertex_labels[v] = l;
     }
     // Bigraphs (TODO: Subclass)
-    if (std::string_view(l) == "LINK") { _imp->no_link_nodes++; }
-    else if (std::string_view(l) == "ANCHOR") { _imp->no_link_nodes++; }
+    if (std::string_view(l) == LINK_COL) { _imp->no_link_nodes++; }
+    else if (std::string_view(l) == ANCHOR_COL) { _imp->no_link_nodes++; }
 }
 
 auto InputGraph::vertex_label(int v) const -> string_view
